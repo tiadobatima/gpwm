@@ -1,0 +1,14 @@
+#
+# Pip packages required when testing this tool. These requirements are in addition
+# to pip-install.txt
+#
+coverage
+flake8
+moto
+pytest
+pytest-cov
+pytest-mock
+pytest-runner >=2.0,<3dev
+setuptools-lint
+twine
+wheel
