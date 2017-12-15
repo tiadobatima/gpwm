@@ -17,7 +17,7 @@ Here we honor his courage, sacrifice, and life-story by aptly naming an
 
 ##### The great GPW Meredith - Australian Hero
 
-![The great GPW Meredith, Australian Hero](docs/gpwm.jpg "The great GPW Meredith")
+![The great GPW Meredith, Australian Hero](docs/gpw.jpg "The great GPW Meredith")
 
 ##### Evil Emu - Enemy Of The State
 ![Evil Emu - Enemy Of The State](docs/emu.png "Evil Emu")
