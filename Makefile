@@ -30,8 +30,8 @@ help:
 
 
 install-test-requirements:
-	pip3 install --upgrade pip
-	pip3 install -r requirements/pip-test.txt -r requirements/pip-install.txt
+	python3 -m pip install --upgrade pip
+	python3 -m pip install -r requirements/pip-test.txt -r requirements/pip-install.txt
 
 
 #
@@ -48,7 +48,7 @@ venv:
 
 # install package in develoment mode (for local dev only!)
 develop:
-	pip3 install -e .
+	python3 -m pip install -e .
 	$(MAKE) install-test-requirements
 
 
@@ -67,7 +67,7 @@ check-style:
 
 # check test coverage
 check-coverage:
-	pytest --cov=$(PACKAGE) ${TESTDIR}/
+	python3 -m pytest --cov=$(PACKAGE) ${TESTDIR}/
 
 # tests the tool
 test: check
@@ -84,8 +84,8 @@ upload:
 
 # installs this package and its requirements
 install:
-	pip3 install --upgrade pip
-	pip3 install -r requirements/pip-install.txt
+	python3 -m pip install --upgrade pip
+	python3 -m pip install -r requirements/pip-install.txt
 	python3 setup.py install
 
 

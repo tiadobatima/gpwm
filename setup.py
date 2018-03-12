@@ -41,11 +41,11 @@ config = {
     "author_email": "gbaratto@gmail.com",
     "url": "https://github.com/tiadobatima/gpwm",
     "packages": find_packages("src"),
-    "package_dir": {'': 'src'},
+    "package_dir": {"": "src"},
     "entry_points": {
         "console_scripts": ["gpwm=gpwm.cli:main"]
     },
-    "setup_requires": ["pytest-runner"],
+#    "setup_requires": ["pytest-runner"],
     "install_requires": get_install_requirements(),
     "tests_require": get_test_requirements()
 }

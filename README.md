@@ -3,21 +3,21 @@
 ## What's GPWM?
 
 
-GPWM are the initials for *Gwynedd Purves Wynn-Aubrey Meredith's* 
+GPWM are the initials for *Gwynedd Purves Wynn-Aubrey Meredith's*
 
 
 For the few who don't yet know, Major GPW Meredith, of the Seventh Heavy
-Battery of the Royal Australian Artillery was the veteran commander of the 
+Battery of the Royal Australian Artillery was the veteran commander of the
 Australians against the Emus in the bloody [Emu War](https://en.wikipedia.org/wiki/Emu_War)
 of 1932.
 
-Here we honor his courage, sacrifice, and life-story by aptly naming an 
-*infrastructure-as-code* tool after his legacy.
+Here we honor his courage, sacrifice, and life-story by aptly naming an
+*infrastructure-as-code* DSL wrapper tool after his legacy.
 
 
 ##### The great GPW Meredith - Australian Hero
 
-![The great GPW Meredith, Australian Hero](docs/gpw.jpg "The great GPW Meredith")
+![The great GPW Meredith, Australian Hero](docs/gpwm.jpg "The great GPW Meredith")
 
 ##### Evil Emu - Enemy Of The State
 ![Evil Emu - Enemy Of The State](docs/emu.png "Evil Emu")
@@ -27,7 +27,7 @@ Here we honor his courage, sacrifice, and life-story by aptly naming an
 
 ## Infrastructure as Code
 
-The idea behind this is to allow for small, re-usable, independent, and readable infrastructure building blocks that different teams (networking/security/application) can own without affecting others, and allowing microservices in different environments and AWS accounts to be created just by modifying a set of values given to a template. 3 main components make up the system:
+The idea behind this is to allow for small, re-usable, independent, and readable infrastructure building blocks that different teams (networking/security/application) can own without affecting others, and allowing microservices in different cloud provider accounts and environments to be created just by modifying a set of values given to a template. 3 main components make up the system:
 
 * Consumables: A YAML-like template rendered through a Python’s Mako engine that results in a CF template.
 * Stacks (input values): A YAML file representing values that will be fed to a template (similar to the *–cli-input-json* option in the AWS CLI).
@@ -118,7 +118,7 @@ Regardless of the provider, the idea behind this tool
 is to never abstract, or dumb-down  the cloud provider's native
 resource manager, only enhance it.
 
-Also, the stacks/input files for each cloud provider try to use the syntax and 
+Also, the stacks/input files for each cloud provider try to use the syntax and
 constructs native to the provider, instead of, for example, trying to make GCP
 Deployment Manager configurations look similar to AWS Cloudformation stacks.
 To illustrate, in AWS, the variable and section names used in a CFN stack are
@@ -132,11 +132,11 @@ so not to throw off users already familiar with a particular cloud provider's DS
 A text templating engine extends the functionality of a CFN template or any
 other text file by allowing "for loops", the use of more complex data types like
 dictionaries and objects, and overall better readability by not having to deal
-with CFN's hard-to-read intrinsic functions. On top of that, Mako allows for 
+with CFN's hard-to-read intrinsic functions. On top of that, Mako allows for
 inline python code right inside the template.
 
 Mako is the default because it's very easy to define simple blocks of python
-code inside the template, making it a very powerful tool. But to simplify the 
+code inside the template, making it a very powerful tool. But to simplify the
 lives of the folks familiar to Ansible, Saltstack, and others, Jinja is also
 supported, but be warned that it's just not as flexible as Mako.
 

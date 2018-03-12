@@ -1,5 +1,14 @@
 # Development
 
+## Prerequisites
+
+### Cygwin
+
+* python3.6
+* python3.6-devel
+* libffi-devel
+* openssl-devel
+
 ## Development environment setup
 
 The local development environment can be setup with [venv](https://docs.python.org/3/library/venv.html),

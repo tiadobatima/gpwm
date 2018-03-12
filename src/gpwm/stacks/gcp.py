@@ -49,7 +49,7 @@ class GCPStack(gpwm.stacks.BaseStack):
         """
         super(GCPStack, self).__init__(**kwargs)
 
-        # make sure "local" is a list of dicts. Making a shallow copy
+        # make sure "labels" is a list of dicts. Making a shallow copy
         # just in case
         self.labels = getattr(self, "labels", {})
         labels = self.labels.copy()

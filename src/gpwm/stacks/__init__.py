@@ -23,7 +23,7 @@ class BaseStack(object):
 def factory(**kwargs):
     """ Factory for different types of stacks
 
-    Imports are being don't here so SDKs for multiple providers don't need to
+    Imports are being done here so SDKs for multiple providers don't need to
     be installed if never used.
     """
 

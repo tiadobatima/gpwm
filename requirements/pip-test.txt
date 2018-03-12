@@ -4,11 +4,11 @@
 #
 coverage
 flake8
-moto
+#moto
 pytest
+pytest-runner
 pytest-cov
 pytest-mock
-pytest-runner >=2.0,<3dev
 setuptools-lint
 twine
 wheel
