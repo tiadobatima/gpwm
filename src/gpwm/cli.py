@@ -176,8 +176,8 @@ def main():
     args = parse_args(sys.argv[1:])
 
     if not args.build_id:
-        raise SystemExit("The build ID is required. \
-            Use -b option or set BUILD_ID")
+        raise SystemExit("The build ID is required. "
+                         "Use -b option or set BUILD_ID")
 
     # logging
     loglevel = getattr(logging, args.loglevel.upper(), None)
@@ -220,7 +220,7 @@ def main():
         stack_template = jinja2.Template(stack_file)
         rendered_template = yaml.load(stack_template.render(**template_params))
     else:
-        stack_attributes = stack_file
+        rendered_template = stack_file
 
     stack_attributes = yaml.load(rendered_template)
     stack_attributes["BuildId"] = args.build_id

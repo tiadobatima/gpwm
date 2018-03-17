@@ -131,7 +131,7 @@ class GCPStack(gpwm.stacks.BaseStack):
     def wait(self, interval=5, timeout=300):
         """ A waiter for stack completeness
 
-        GCP SDK doesn't provide a waiter, so improvising a quick on here.
+        GCP SDK doesn't provide a waiter, so improvising a quick one here.
 
         Args:
             interval(int): Interval between probes in seconds

@@ -2,6 +2,8 @@
 # gpip packages required when installing this tool (runtime requirements)
 #
 awscli
+azure
+azure-cli
 boto3
 google-api-python-client
 #google-cloud

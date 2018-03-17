@@ -14,7 +14,8 @@
 
 PACKAGE := gpwm
 TESTDIR := tests
-SHELL = /bin/bash
+PYTHON  := python3.6
+SHELL   := /bin/bash
 
 help:
 	@echo "venv       Create a pyvenv virtual envionment (not virtualenv)"
@@ -30,8 +31,8 @@ help:
 
 
 install-test-requirements:
-	python3 -m pip install --upgrade pip
-	python3 -m pip install -r requirements/pip-test.txt -r requirements/pip-install.txt
+	${PYTHON} -m pip install --upgrade pip
+	${PYTHON} -m pip install -r requirements/pip-test.txt -r requirements/pip-install.txt
 
 
 #
@@ -41,15 +42,15 @@ install-test-requirements:
 # install virtual environment
 # IMPORTANT: activate venv after running this
 venv:
-	python3 -m venv $@
+	${PYTHON} -m venv $@
 	@echo "===> IMPORTANT: Activate your venv if you're developing locally:"
 	@echo "========># source $@/bin/activate"
 	@touch $@
 
 # install package in develoment mode (for local dev only!)
 develop:
-	python3 -m pip install -e .
-	$(MAKE) install-test-requirements
+	${PYTHON} -m pip install -e .
+	${MAKE} install-test-requirements
 
 
 
@@ -62,31 +63,31 @@ check: install-test-requirements check-style
 
 # checks code style
 check-style:
-	python3 setup.py flake8
-#python3 setup.py lint
+	${PYTHON} setup.py flake8
+#${PYTHON} setup.py lint
 
 # check test coverage
 check-coverage:
-	python3 -m pytest --cov=$(PACKAGE) ${TESTDIR}/
+	${PYTHON} -m pytest --cov=${PACKAGE} ${TESTDIR}/
 
 # tests the tool
 test: check
-	python3 setup.py test
+	${PYTHON} setup.py test
 
 
 # builds the package
 dist: clean
-	python3 setup.py sdist
-	python3 setup.py bdist_wheel
+	${PYTHON} setup.py sdist
+	${PYTHON} setup.py bdist_wheel
 
 upload:
 	twine upload dist/*
 
 # installs this package and its requirements
 install:
-	python3 -m pip install --upgrade pip
-	python3 -m pip install -r requirements/pip-install.txt
-	python3 setup.py install
+	${PYTHON} -m pip install --upgrade pip
+	${PYTHON} -m pip install -r requirements/pip-install.txt
+	${PYTHON} setup.py install
 
 
 #
@@ -96,8 +97,8 @@ clean-all: clean clean-venv
 
 # cleans up python compiled files, built packages, tests results, caches, etc
 clean:
-	find src/$(PACKAGE) \( -path '*__pycache__/*' -o -name __pycache__ \) -delete
-	find $(TESTDIR) \( -path '*__pycache__/*' -o -name __pycache__ \) -delete
+	find src/${PACKAGE} \( -path '*__pycache__/*' -o -name __pycache__ \) -delete
+	find ${TESTDIR} \( -path '*__pycache__/*' -o -name __pycache__ \) -delete
 	rm -rf build dist *.egg-info .cache .eggs .coverage
 
 # cleans up a python virtual environment.

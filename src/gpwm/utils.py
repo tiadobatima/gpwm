@@ -24,6 +24,8 @@ from six.moves.urllib.parse import urlunparse
 import yaml
 
 import apiclient.discovery  # GCP API
+from azure.common.client_factory import get_client_from_cli_profile
+from azure.mgmt.resource import ResourceManagementClient
 import boto3
 import jinja2
 import jmespath
@@ -38,8 +40,12 @@ CF_STACK_RESOURCE_CACHE = {}
 BOTO_CF_RESOURCE = boto3.resource("cloudformation")
 BOTO_CF_CLIENT = boto3.client("cloudformation")
 
+# Azure API objects
+AZURE_API_CLIENT = get_client_from_cli_profile(ResourceManagementClient)
+
 # GCP API objects
 GCP_API = apiclient.discovery.build("deploymentmanager", "v2")
+
 
 
 def yaml_cloudformation_constructor(loader, node):
@@ -238,7 +244,8 @@ def parse_mako(stack_name, template_body, parameters):
         } for k in template.get("Resources", {}).keys()
     }
     outputs.update(template.get("Outputs", {}))
-    template["Outputs"] = outputs
+    if outputs:
+        template["Outputs"] = outputs
     return template
 
 

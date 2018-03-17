@@ -40,6 +40,9 @@ def factory(**kwargs):
     if stack_type == "cloudformation":
         import gpwm.stacks.aws
         return gpwm.stacks.aws.CloudformationStack(**kwargs)
+    elif stack_type == "azure":
+        import gpwm.stacks.azure
+        return gpwm.stacks.azure.AzureStack(**kwargs)
     elif stack_type == "shell":
         import gpwm.stacks.shell
         return gpwm.stacks.shell.ShellStack(**kwargs)
