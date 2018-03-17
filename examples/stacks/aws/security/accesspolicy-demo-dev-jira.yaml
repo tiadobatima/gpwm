@@ -1,0 +1,33 @@
+##
+## Owner: security
+##
+<%
+    stack_type = "accesspolicy"
+    team = "demo"
+    environment = "dev"
+    application = "jira"
+
+    # helper variables
+    service = "-".join([team, environment, application])
+    hostedzone = "island.dev.srcd.io"
+    bucket = hostedzone.replace(".", "-")
+
+%>
+StackName: ${stack_type}-${service}
+TemplateBody: s3://${team}-${bucket}/security/accesspolicy-1.0.0.mako?SSECustomerKey=abcdefghijklmnopqrstuvwxyz123456&SSECustomerAlgorithm=AES256
+Capabilities:
+  - CAPABILITY_IAM
+  - CAPABILITY_NAMED_IAM
+Parameters:
+  team: ${team}
+  environment: ${environment}
+  application: ${application}
+  hostedzone: ${hostedzone}
+  policies: {}
+#    managed: []
+  kms_cmk: false
+Tags:
+  type: ${stack_type}
+  team: ${team}
+  environment: ${environment}
+  application: ${application}

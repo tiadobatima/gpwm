@@ -1,0 +1,43 @@
+##
+## Owner: networking
+##
+<%
+    stack_type = "securitygroup"
+    team = "training"
+    environment = "dev"
+
+    # dependencies
+    vpc_stack = "-".join(["vpc", team, environment])
+%>
+StackName: ${stack_type}-${team}-${environment}
+TemplateBody: templates/${stack_type}.mako
+Parameters:
+  team: ${team}
+  environment: ${environment}
+  vpc: !Cloudformation {stack: ${vpc_stack}, output: VPC}
+  security_groups:
+    - service: jiraELB
+      notes: SG for jira ELB
+      egress_rules:
+        - {IpProtocol: "-1", CidrIp: "0.0.0.0/0"}
+      ingress_rules:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+    - service: jira
+      notes: SG for jira application
+      egress_rules:
+        - {IpProtocol: "-1", CidrIp: "0.0.0.0/0"}
+      ingress_rules:
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: {Ref: SecurityGroupjiraELB}}
+        - {IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: 0.0.0.0/0}
+    - service: jiradb
+      notes: SG for Jira DB. Assuming RDS, ie No SSH needed.
+      egress_rules:
+        - {IpProtocol: "-1", CidrIp: "0.0.0.0/0"}
+      ingress_rules:
+        - {IpProtocol: tcp, FromPort: 3306, ToPort: 3306, SourceSecurityGroupId: {Ref: SecurityGroupjira}}
+
+  security_group_rules: []
+Tags:
+  type: ${stack_type}
+  team: ${team}
+  environment: ${environment}
