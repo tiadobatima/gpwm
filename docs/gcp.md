@@ -30,6 +30,10 @@ The GCP SDK setup is a bit more complex than AWS'. These tools are needed:
 * google cloud python SDK: ```pip install google-cloud```
 * google API python SDK: ```pip install google-api-python-client```
 
+But by using ```pip install -r requirements/pip-install.txt``` all dependencies
+for all cloud providers will be installed. Or if you're developing the tool,
+use the *Makefile* - see the [development page](docs/development.md).
+
 ## Authentication
 
 follow the instructions

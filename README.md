@@ -144,7 +144,8 @@ supported, but be warned that it's just not as flexible as Mako.
 ### Stack Types
 
 
-* [Cloudformation](docs/aws.md)
+* [AWS](docs/aws.md)
+* [Azure](docs/azure.md)
 * [GCP](docs/gcp.md)
 * [Shell](docs/shell.md)
 
