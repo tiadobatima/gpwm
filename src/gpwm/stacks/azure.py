@@ -159,6 +159,9 @@ class AzureStack(gpwm.stacks.BaseStack):
             properties=self.deploymentProperties
         )
 
+    def render(self):
+        print(json.dumps(self.deploymentProperties, indent=2))
+
     def create_resource_group(self):
         return AZURE_API_CLIENT.resource_groups.create_or_update(
             self.resourceGroup["name"],
