@@ -46,6 +46,13 @@ AZURE_API_CLIENT = get_client_from_cli_profile(ResourceManagementClient)
 # GCP API objects
 GCP_API = apiclient.discovery.build("deploymentmanager", "v2")
 
+YAML_TAGS =  [
+    "!Cloudformation",
+    "!AWS",
+    "!SSM",
+    "!ARM",
+    "!GCPDM"
+]
 
 
 def yaml_cloudformation_constructor(loader, node):
@@ -61,7 +68,7 @@ def yaml_cloudformation_constructor(loader, node):
     output_dict = loader.construct_mapping(node)
     stack_name = output_dict["stack"]
     if "output" in output_dict.keys():
-        return get_stack_output(stack_name, output_dict["output"])
+        return get_aws_stack_output(stack_name, output_dict["output"])
     elif "resource_id" in output_dict.keys():
         return get_stack_resource(stack_name, output_dict["resource_id"])
     else:
@@ -107,7 +114,32 @@ def yaml_aws_constructor(loader, node):
     return call_aws(**args_dict)
 
 
-def yaml_gcp_dm_constructor(loader, node):
+def yaml_arm_constructor(loader, node):
+    """ Implements the '!ARM' YAML tag
+
+    The tag takes a yaml mapping like this as node (argument):
+    {stack: $stack_name, resource-group: ${resource_group_name}, output: ${output_name}}
+
+    Example:
+      storageAccount: !ARM {stack: ${storage_stack}, resource-group: ${storage_resource_group}, output: ${storageName}}
+#      storageAccount: !ARM {stack: ${storage_stack}, resource-group:
+#      ${storage_resource_group}, resource-id: ${storage_resource_id}}
+    """
+    output_dict = loader.construct_mapping(node)
+    stack_name = output_dict["stack"]
+    if "output" in output_dict.keys():
+        return get_azure_stack_output(
+            stack_name=stack_name,
+            resource_group_name=output_dict["resource-group"],
+            output_key=output_dict["output"]
+        )
+#    elif "resource-id" in output_dict.keys():
+#        return get_stack_resource(stack_name, output_dict["resource_id"])
+#    else:
+    raise SystemExit("Either 'output' or 'resource_id' must be provided")
+
+
+def yaml_gcpdm_constructor(loader, node):
     """ Implements the yaml tag !GCPDM
 
     The tag takes a dict {deployment: $stack_name, output: output_key}
@@ -128,45 +160,77 @@ def yaml_gcp_dm_constructor(loader, node):
         raise SystemExit("Either 'output' or 'resource' must be provided")
 
 
-yaml.add_constructor(u'!Cloudformation', yaml_cloudformation_constructor)
-yaml.add_constructor(u'!AWS', yaml_aws_constructor)
-yaml.add_constructor(u'!SSM', yaml_ssm_constructor)
-yaml.add_constructor(u'!GCPDM', yaml_gcp_dm_constructor)
+def yaml_constructor(loader, tag_suffix, node):
+    """ Handles YAML tags used in this tool
+
+    If the tag in not specific to this tool, the yaml Node() object is
+    returned, so it can be rendered back into YAML by the *representer*
+    function.
+    """
+    if tag_suffix in YAML_TAGS:
+        function = globals()[f"yaml_{tag_suffix[1:]}_constructor".lower()]
+        return function(loader, node)
+    return node
 
 
-def get_stack_output(
-        stack_name,
-        output_key,
-        provider="cloudformation",
-        **kwargs):
-    if provider == "cloudformation":
-        # caching results of calls to clouformation API
-        if not STACK_CACHE.get(stack_name):
-            STACK_CACHE[stack_name] = BOTO_CF_RESOURCE.Stack(stack_name)
+def yaml_representer(dumper, data):
+    return data
 
-        for output in STACK_CACHE[stack_name].outputs:
-            if output["OutputKey"] == output_key:
-                return output["OutputValue"]
-    elif provider == "gcp":
-        if not STACK_CACHE.get(stack_name):
-            deployment = GCP_API.deployments().get(
-                project=kwargs["project"],
-                deployment=stack_name
+
+# Empty string means all custom tags are handled by yaml_constructor()
+# the constructor function handles what tags are specific to this
+# script and which aren't. For example, !Cloudformation must be handled
+# by this script, which !Sub, or !Ref must be passed to AWS.
+yaml.add_multi_constructor("", yaml_constructor)
+yaml.add_multi_representer(yaml.nodes.Node, yaml_representer)
+
+
+def get_aws_stack_output(stack_name, output_key):
+    if not STACK_CACHE.get(stack_name):
+        STACK_CACHE[stack_name] = BOTO_CF_RESOURCE.Stack(stack_name)
+
+    for output in STACK_CACHE[stack_name].outputs:
+        if output["OutputKey"] == output_key:
+            return output["OutputValue"]
+
+def get_azure_stack_output(stack_name, resource_group_name, output_key):
+    if not STACK_CACHE.get(stack_name):
+        STACK_CACHE[stack_name] = AZURE_API_CLIENT.deployments.get(
+            deployment_name=stack_name,
+            resource_group_name=resource_group_name
+        )
+    if STACK_CACHE[stack_name].properties.outputs is None:
+        return None
+
+    # deployment has outputs if not None
+    for k, v in STACK_CACHE[stack_name].properties.outputs.items():
+        if k == output_key:
+            return v["value"]
+
+def get_gcp_stack_output(stack_name, project, output_key):
+    if not STACK_CACHE.get(stack_name):
+        deployment = GCP_API.deployments().get(
+            project=project,
+            deployment=stack_name
+        ).execute()
+        manifest = GCP_API.manifests().get(
+            project=project,
+            deployment=stack_name,
+            manifest=deployment["manifest"].split("/")[-1]
             ).execute()
-            manifest = GCP_API.manifests().get(
-                project=kwargs["project"],
-                deployment=stack_name,
-                manifest=deployment["manifest"].split("/")[-1]
-                ).execute()
-            STACK_CACHE[stack_name] = {
-                "deployment": deployment,
-                "manifest": manifest
-            }
-        layout = yaml.load(STACK_CACHE[stack_name]["manifest"]["layout"])
-        for output in layout.get("outputs", []):
-            if output["name"] == output_key:
-                return output["finalValue"]
-    return ""
+        STACK_CACHE[stack_name] = {
+            "deployment": deployment,
+            "manifest": manifest
+        }
+    layout = yaml.load(STACK_CACHE[stack_name]["manifest"]["layout"])
+    for output in layout.get("outputs", []):
+        if output["name"] == output_key:
+            return output["finalValue"]
+
+
+def get_stack_output(stack_name, output_key,  provider="aws", **kwargs):
+    cmd = locals()[f"get_{provider}_stack_output"]
+    return cmd(stack_name=stack_name, output_key=output_key, **kwargs) or ""
 
 
 def get_stack_resource(stack_name, resource_id):
@@ -214,6 +278,7 @@ def get_template_body(url):
     return open(url.path).read()
 
 
+
 def parse_mako(stack_name, template_body, parameters):
     """ Parses Mako templates
     """
@@ -228,6 +293,11 @@ def parse_mako(stack_name, template_body, parameters):
     parameters["call_aws"] = call_aws
     try:
         template = yaml.load(mako_template.render(**parameters))
+    # Ignoring yaml tags unknown to this script, because one might want to use
+    # the providers tags like !Ref, !Sub, etc in their templates
+    except yaml.constructor.ConstructorError as exc:
+        if "could not determine a constructor for the tag" not in exc.problem:
+            raise exc
     except Exception:
         raise SystemExit(
             mako.exceptions.text_error_template().render()
@@ -256,8 +326,13 @@ def parse_jinja(stack_name, template_body, parameters):
     parameters["get_stack_output"] = get_stack_output
     parameters["get_stack_resource"] = get_stack_resource
     parameters["call_aws"] = call_aws
-    template = yaml.load(jinja_template.render(**parameters))
-
+    try:
+        template = yaml.load(jinja_template.render(**parameters))
+    # Ignoring yaml tags unknown to this script, because one might want to use
+    # the providers tags like !Ref, !Sub, etc in their templates
+    except yaml.constructor.ConstructorError as exc:
+        if "could not determine a constructor for the tag" not in exc.problem:
+            raise exc
     # Automatically adds and merges outputs for every resource in the
     # template - outputs are automatically exported.
     # An existing output in the template will not be overriden by an

@@ -40,7 +40,7 @@ class CloudformationStack(gpwm.stacks.BaseStack):
         super(CloudformationStack, self).__init__(**kwargs)
 
         if isinstance(self.TemplateBody, dict):
-            self.TemplateBody = yaml.safe_dump(self.TemplateBody, indent=2)
+            self.TemplateBody = yaml.dump(self.TemplateBody, indent=2)
         else:
             template_url = urlparse(self.TemplateBody)
             template_body = gpwm.utils.get_template_body(template_url)
@@ -69,7 +69,7 @@ class CloudformationStack(gpwm.stacks.BaseStack):
             else:
                 raise SystemExit("file extension not supported")
 
-            self.TemplateBody = yaml.safe_dump(template, indent=2)
+            self.TemplateBody = yaml.dump(template, indent=2)
 
         # make sure "Tags" is a list of dicts. Making a shallow copy
         # just in case
@@ -139,7 +139,7 @@ class CloudformationStack(gpwm.stacks.BaseStack):
         )
         change_set.pop("ResponseMetadata")
         print("---------- Change Set ----------")
-        print(yaml.safe_dump(change_set, indent=2))
+        print(yaml.dump(change_set, indent=2))
         print("--------------------------------")
 
         answer = False
@@ -187,7 +187,7 @@ class CloudformationStack(gpwm.stacks.BaseStack):
         # un-stringfy the TemplateBody so it displays nicely on screen
         template = self.__dict__.copy()
         template["TemplateBody"] = yaml.load(template["TemplateBody"])
-        print(yaml.safe_dump(template, indent=2))
+        print(yaml.dump(template, indent=2))
 
     def validate(self):
         try:
