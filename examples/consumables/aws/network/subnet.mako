@@ -34,13 +34,13 @@ Resources:
     else:
         route_table_output = "RouteTablePublic"
 %>
-         
+
   Subnet${subnet_resource_name}:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId: !Cloudformation {stack: ${vpc_stack}, output: VPC}
       CidrBlock: ${subnet["cidr"]}
-      AvailabilityZone: {"Fn::Sub": "<%text>$</%text>{AWS::Region}${subnet['az']}"}
+      AvailabilityZone: !Sub "<%text>$</%text>{AWS::Region}${subnet['az']}"
       MapPublicIpOnLaunch: ${subnet.get("map_public_ip", "false")}
       Tags:
         - {Key: team, Value: ${team}}
@@ -51,7 +51,7 @@ Resources:
   RouteTableAssociation${subnet_resource_name}:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      SubnetId: {Ref: Subnet${subnet_resource_name}}
+      SubnetId: !Ref Subnet${subnet_resource_name}
       RouteTableId: !Cloudformation {stack: ${vpc_stack}, output: ${route_table_output}}
 
 %endfor

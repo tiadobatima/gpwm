@@ -10,8 +10,9 @@
 ##
 $schema: "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
 contentVersion: 1.0.0.0
-#parameters:
-#variables:
+parameters:
+variables:
+  vnet: !ARM {stack: platform-network-vnet, resource-group: platform-network-vnet-rg, output: virtualNetwork}
 resources:
   - type: Microsoft.Compute/availabilitySets
     name: ${team}-${environment}-${service}-as
@@ -33,3 +34,10 @@ resources:
       team: ${team}
       environment: ${environment}
       service: ${service}
+outputs:
+  availabilitySet:
+    type: object
+    value: "[reference('${team}-${environment}-${service}-as')]"
+  storageAccount:
+    type: object
+    value: "[reference('${team}${environment}${service}001')]"
