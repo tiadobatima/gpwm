@@ -18,8 +18,10 @@
 
 
 from __future__ import print_function
+import os
 import requests
 from six.moves.urllib.parse import parse_qs
+from six.moves.urllib.parse import urlparse
 from six.moves.urllib.parse import urlunparse
 import yaml
 
@@ -46,7 +48,7 @@ AZURE_API_CLIENT = get_client_from_cli_profile(ResourceManagementClient)
 # GCP API objects
 GCP_API = apiclient.discovery.build("deploymentmanager", "v2")
 
-YAML_TAGS =  [
+YAML_TAGS = [
     "!Cloudformation",
     "!AWS",
     "!SSM",
@@ -193,6 +195,7 @@ def get_aws_stack_output(stack_name, output_key):
         if output["OutputKey"] == output_key:
             return output["OutputValue"]
 
+
 def get_azure_stack_output(stack_name, resource_group_name, output_key):
     if not STACK_CACHE.get(stack_name):
         STACK_CACHE[stack_name] = AZURE_API_CLIENT.deployments.get(
@@ -206,6 +209,7 @@ def get_azure_stack_output(stack_name, resource_group_name, output_key):
     for k, v in STACK_CACHE[stack_name].properties.outputs.items():
         if k == output_key:
             return v["value"]
+
 
 def get_gcp_stack_output(stack_name, project, output_key):
     if not STACK_CACHE.get(stack_name):
@@ -228,7 +232,7 @@ def get_gcp_stack_output(stack_name, project, output_key):
             return output["finalValue"]
 
 
-def get_stack_output(stack_name, output_key,  provider="aws", **kwargs):
+def get_stack_output(stack_name, output_key, provider="aws", **kwargs):
     cmd = locals()[f"get_{provider}_stack_output"]
     return cmd(stack_name=stack_name, output_key=output_key, **kwargs) or ""
 
@@ -264,19 +268,41 @@ def get_template_body(url):
         - s3
         - path
     """
-    if "http" in url.scheme:
-        return requests.get(urlunparse(url)).text
-    elif "s3" in url.scheme:
-        s3_client = boto3.client("s3")
-        extra_args = {k: v[0] for k, v in parse_qs(url.query).items()}
-        obj = s3_client.get_object(
-            Bucket=url.netloc,
-            Key=url.path[1:],
-            **extra_args
-        )
-        return obj["Body"].read()
-    return open(url.path).read()
+    url_prefix = os.environ.get("GPWM_TEMPLATE_URL_PREFIX", "")
+    if url_prefix:
+        if url_prefix.endswith("/"):
+            url_prefix = url_prefix[:-1]
+        if url.startswith("/"):
+            url = url[1:]
+        url = f"{url_prefix}/{url}"
 
+    parsed_url = urlparse(url)
+    if "http" in parsed_url.scheme:  # http and https
+        try:
+            request = requests.get(url)
+            request.raise_for_status()
+            body = request.text
+        except requests.exceptions.RequestException as exc:
+            raise SystemExit(exc)
+    elif parsed_url.scheme == "s3":
+        s3 = boto3.resource("s3")
+        obj = s3.Object(parsed_url.netloc, parsed_url.path[1:])
+        extra_args = {k: v[0] for k, v in parse_qs(parsed_url.query).items()}
+        try:
+            body = obj.get(**extra_args)["Body"].read()
+        except s3.meta.client.exceptions.NoSuchBucket as exc:
+            raise SystemExit(
+                f"Error: S3 bucket doesn't exist: {parsed_url.netloc}"
+            )
+        except s3.meta.client.exceptions.NoSuchKey as exc:
+            raise SystemExit(f"Error: S3 object doesn't exist: {url}")
+    elif not parsed_url.scheme:
+        with open(url) as local_file:
+            body = local_file.read()
+    else:
+        raise SystemExit(f"URL scheme not supported: {parsed_url.scheme}")
+
+    return parsed_url, body
 
 
 def parse_mako(stack_name, template_body, parameters):
@@ -302,6 +328,7 @@ def parse_mako(stack_name, template_body, parameters):
         raise SystemExit(
             mako.exceptions.text_error_template().render()
         )
+    print(template)
 
     # Automatically adds and merges outputs for every resource in the
     # template - outputs are automatically exported.

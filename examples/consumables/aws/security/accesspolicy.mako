@@ -40,16 +40,16 @@ Resources:
             Effect: Allow
             Action:
               - sts:AssumeRole
-            Principal: 
+            Principal:
               Service:
                 - ec2.amazonaws.com
       % if policies.get("inline"):
       ManagedPolicyArns: ${policies.get("managed"), []}
       % endif
       Policies:
-        - 
+        -
           PolicyName: default
-          PolicyDocument: 
+          PolicyDocument:
             Version: "2012-10-17"
             Statement:
               -
@@ -90,7 +90,7 @@ Resources:
                   StringNotLike:
                     s3:prefix:
                       - ""
-                      - services 
+                      - services
                       - services/*
                       - services/${service}
                       - services/${service}/*
@@ -102,13 +102,13 @@ Resources:
                   - arn:aws:s3:::${team_bucket}/artifacts/services/${service}/*
               -
                 Sid: FullAccessToServiceFolder
-                Action: 
+                Action:
                   - s3:*
                 Effect: Allow
                 Resource:
                   - arn:aws:s3:::${team_bucket}/services/${service}/*
                   - arn:aws:s3:::${team_bucket}/services/${service}
-              - 
+              -
                 Sid: FullAccessToServiceBucket
                 Action:
                   - s3:*

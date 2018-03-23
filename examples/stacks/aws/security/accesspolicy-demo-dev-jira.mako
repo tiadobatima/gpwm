@@ -14,7 +14,10 @@
 
 %>
 StackName: ${stack_type}-${service}
-TemplateBody: s3://${team}-${bucket}/security/accesspolicy-1.0.0.mako?SSECustomerKey=abcdefghijklmnopqrstuvwxyz123456&SSECustomerAlgorithm=AES256
+#TemplateBody: s3://${team}-${bucket}/security/accesspolicy-1.0.0.mako?SSECustomerKey=abcdefghijklmnopqrstuvwxyz123456&SSECustomerAlgorithm=AES256
+#TemplateBody: s3://${team}-${bucket}/security/accesspolicy-plain.mako
+#TemplateBody: https://s3-us-west-2.amazonaws.com/demo-island-dev-srcd-io/security/accesspolicy-plain.mako
+TemplateBody: security/accesspolicy-plain.mako
 Capabilities:
   - CAPABILITY_IAM
   - CAPABILITY_NAMED_IAM

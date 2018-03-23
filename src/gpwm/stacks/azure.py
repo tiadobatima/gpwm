@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from six.moves.urllib.parse import urlparse
 import yaml
 
 import gpwm.stacks
@@ -71,10 +70,10 @@ class AzureStack(gpwm.stacks.BaseStack):
         if isinstance(self.template, dict):
             self.template = json.dumps(self.template, indent=2, sort_keys=True)
         else:
-            template_url = urlparse(self.template)
-            template_body = get_template_body(template_url)
+            parsed_url, template_body = \
+                gpwm.utils.get_template_body(self.template)
 
-            if ".mako" in template_url.path[-5:]:
+            if parsed_url.path[-5:] == ".mako":
                 if not hasattr(self, "parameters"):
                     self.parameters = {}
                 self.parameters["build_id"] = self.BuildId
@@ -83,16 +82,16 @@ class AzureStack(gpwm.stacks.BaseStack):
                 # mako doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.parameters
-            elif ".jinja" in template_url.path[-6:]:
+            elif parsed_url.path[-6:] == ".jinja":
                 args = [self.name, template_body, self.parameters]
                 template = parse_jinja(*args)
                 # jinja doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.parameters
-            elif ".json" in template_url.path[-5:]:
+            elif parsed_url.path[-5:] == ".json":
                 args = [self.name, template_body, self.parameters]
                 template = parse_json(*args)
-            elif ".yaml" in template_url[-5:]:
+            elif parsed_url.path[-5:] == ".yaml":
                 args = [self.name, template_body, self.parameters]
                 template = parse_yaml(*args)
             else:

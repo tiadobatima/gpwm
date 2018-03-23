@@ -14,7 +14,6 @@
 
 from __future__ import print_function
 from six.moves import input
-from six.moves.urllib.parse import urlparse
 import time
 import yaml
 
@@ -42,10 +41,10 @@ class CloudformationStack(gpwm.stacks.BaseStack):
         if isinstance(self.TemplateBody, dict):
             self.TemplateBody = yaml.dump(self.TemplateBody, indent=2)
         else:
-            template_url = urlparse(self.TemplateBody)
-            template_body = gpwm.utils.get_template_body(template_url)
+            parsed_url, template_body = \
+                gpwm.utils.get_template_body(self.TemplateBody)
 
-            if ".mako" in template_url.path[-5:]:
+            if parsed_url.path[-5:] == ".mako":
                 if not hasattr(self, "Parameters"):
                     self.Parameters = {}
                 self.Parameters["build_id"] = self.BuildId
@@ -54,16 +53,16 @@ class CloudformationStack(gpwm.stacks.BaseStack):
                 # mako doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.Parameters
-            elif ".jinja" in template_url.path[-6:]:
+            elif parsed_url.path[-6:] == ".jinja":
                 args = [self.StackName, template_body, self.Parameters]
                 template = gpwm.utils.parse_jinja(*args)
                 # jinja doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.Parameters
-            elif ".json" in template_url.path[-5:]:
+            elif parsed_url.path[-5:] == ".json":
                 args = [self.StackName, template_body, self.Parameters]
                 template = gpwm.utils.parse_json(*args)
-            elif ".yaml" in template_url[-5:]:
+            elif parsed_url.path[-5:] == ".yaml":
                 args = [self.StackName, template_body, self.Parameters]
                 template = gpwm.utils.parse_yaml(*args)
             else:
