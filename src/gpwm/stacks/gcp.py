@@ -20,8 +20,8 @@ import yaml
 
 from apiclient.errors import HttpError
 
+from gpwm.sessions import GCP as GCPSession
 import gpwm.stacks
-import gpwm.utils
 
 
 class GCPStack(gpwm.stacks.BaseStack):
@@ -117,7 +117,7 @@ class GCPStack(gpwm.stacks.BaseStack):
         """
 
         try:
-            return gpwm.utils.GCP_API.deployments().get(
+            return GCPSession().client.deployments().get(
                 project=self.project,
                 deployment=self.name
             ).execute()
@@ -146,7 +146,7 @@ class GCPStack(gpwm.stacks.BaseStack):
                 break
 
     def create(self, wait=False):
-        gpwm.utils.GCP_API.deployments().insert(
+        GCPSession().client.deployments().insert(
             project=self.project,
             body=self.body
         ).execute()
@@ -156,7 +156,7 @@ class GCPStack(gpwm.stacks.BaseStack):
     def delete(self, wait=False):
         if not self.get():
             raise SystemExit("Deployment doesn't exist: {}".format(self.name))
-        gpwm.utils.GCP_API.deployments().delete(
+        GCPSession().client.deployments().delete(
             project=self.project,
             deployment=self.name
         ).execute()
@@ -164,7 +164,7 @@ class GCPStack(gpwm.stacks.BaseStack):
             self.wait()
 
     def update(self, wait=False, review=False):
-        gpwm.utils.GCP_API.deployments().insert(
+        GCPSession().client.deployments().insert(
             project=self.project,
             body=self.body
         ).execute()

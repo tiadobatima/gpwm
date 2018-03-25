@@ -17,37 +17,17 @@
 """
 
 
-from __future__ import print_function
-import os
-import requests
-from six.moves.urllib.parse import parse_qs
-from six.moves.urllib.parse import urlparse
-from six.moves.urllib.parse import urlunparse
 import yaml
 
-import apiclient.discovery  # GCP API
-from azure.common.client_factory import get_client_from_cli_profile
-from azure.mgmt.resource import ResourceManagementClient
 import boto3
-import jinja2
 import jmespath
-import mako.exceptions
-import mako.template
 
+from gpwm.sessions import AWS as AWSSession
+from gpwm.sessions import Azure as AzureSession
+from gpwm.sessions import GCP as GCPSession
 
 STACK_CACHE = {}
 CF_STACK_RESOURCE_CACHE = {}
-
-# CFN API objects
-BOTO_CF_RESOURCE = boto3.resource("cloudformation")
-BOTO_CF_CLIENT = boto3.client("cloudformation")
-
-# Azure API objects
-AZURE_API_CLIENT = get_client_from_cli_profile(ResourceManagementClient)
-
-# GCP API objects
-GCP_API = apiclient.discovery.build("deploymentmanager", "v2")
-
 YAML_TAGS = [
     "!Cloudformation",
     "!AWS",
@@ -68,11 +48,11 @@ def yaml_cloudformation_constructor(loader, node):
       VpcId: !Cloudformation {stack: ${vpc_stack}, resource_id: VPC}
     """
     output_dict = loader.construct_mapping(node)
-    stack_name = output_dict["stack"]
+    stack = output_dict["stack"]
     if "output" in output_dict.keys():
-        return get_aws_stack_output(stack_name, output_dict["output"])
+        return get_aws_stack_output(stack=stack, output=output_dict["output"])
     elif "resource_id" in output_dict.keys():
-        return get_stack_resource(stack_name, output_dict["resource_id"])
+        return get_stack_resource(stack, output_dict["resource_id"])
     else:
         raise SystemExit("Either 'output' or 'resource_id' must be provided")
 
@@ -99,10 +79,8 @@ def yaml_ssm_constructor(loader, node):
 def yaml_aws_constructor(loader, node):
     """ Implements the yaml tag !AWS
 
-    The tag takes a dict {service: $service_name,
-      action: $action_name, arguments: $arguments,
-      result_filter: $jmespath_string}
-    as node (argument)
+    The tag takes a dict like this as node (argument):
+    {service: $service_name,  action: $action_name, arguments: $arguments, result_filter: $jmespath_string} # noqa
 
     Example:
       VpcId: !AWS {
@@ -120,20 +98,17 @@ def yaml_arm_constructor(loader, node):
     """ Implements the '!ARM' YAML tag
 
     The tag takes a yaml mapping like this as node (argument):
-    {stack: $stack_name, resource-group: ${resource_group_name}, output: ${output_name}}
+    {resource-group: ${resource_group_name}, deployment=${stack}, output: ${output_name}} # noqa
 
     Example:
-      storageAccount: !ARM {stack: ${storage_stack}, resource-group: ${storage_resource_group}, output: ${storageName}}
-#      storageAccount: !ARM {stack: ${storage_stack}, resource-group:
-#      ${storage_resource_group}, resource-id: ${storage_resource_id}}
+      storageAccount: !ARM {resource-group: ${storage_resource_group}, deployment=${stack}, output: ${storageName}}
     """
     output_dict = loader.construct_mapping(node)
-    stack_name = output_dict["stack"]
     if "output" in output_dict.keys():
         return get_azure_stack_output(
-            stack_name=stack_name,
-            resource_group_name=output_dict["resource-group"],
-            output_key=output_dict["output"]
+            resource_group=output_dict["resource-group"],
+            deployment=output_dict["deployment"],
+            output=output_dict["output"]
         )
 #    elif "resource-id" in output_dict.keys():
 #        return get_stack_resource(stack_name, output_dict["resource_id"])
@@ -144,19 +119,18 @@ def yaml_arm_constructor(loader, node):
 def yaml_gcpdm_constructor(loader, node):
     """ Implements the yaml tag !GCPDM
 
-    The tag takes a dict {deployment: $stack_name, output: output_key}
-    as node (argument).
+    The tag takes a dict as node value:
+        {project: ${project}, deployment: ${stack}, output: ${output}}
 
     Example:
-      VpcId: !GCPDM {deployment: ${vpc_stack}, output: VPC}
+      VpcId: !GCPDM {project: platform, deployment: core-network, output: VPC}
     """
     output_dict = loader.construct_mapping(node)
     if "output" in output_dict.keys():
-        return get_stack_output(
-            stack_name=output_dict["deployment"],
-            output_key=output_dict["output"],
-            provider="gcp",
-            project=output_dict["project"]
+        return get_gcp_stack_output(
+            project=output_dict["project"],
+            deployment=output_dict["deployment"],
+            output=output_dict["output"]
         )
     else:
         raise SystemExit("Either 'output' or 'resource' must be provided")
@@ -187,49 +161,49 @@ yaml.add_multi_constructor("", yaml_constructor)
 yaml.add_multi_representer(yaml.nodes.Node, yaml_representer)
 
 
-def get_aws_stack_output(stack_name, output_key):
-    if not STACK_CACHE.get(stack_name):
-        STACK_CACHE[stack_name] = BOTO_CF_RESOURCE.Stack(stack_name)
+def get_aws_stack_output(stack, output):
+    if not STACK_CACHE.get(stack):
+        STACK_CACHE[stack] = AWSSession().resource.Stack(stack)
 
-    for output in STACK_CACHE[stack_name].outputs:
-        if output["OutputKey"] == output_key:
-            return output["OutputValue"]
+    for stack_output in STACK_CACHE[stack].outputs:
+        if stack_output["OutputKey"] == output:
+            return stack_output["OutputValue"]
 
 
-def get_azure_stack_output(stack_name, resource_group_name, output_key):
-    if not STACK_CACHE.get(stack_name):
-        STACK_CACHE[stack_name] = AZURE_API_CLIENT.deployments.get(
-            deployment_name=stack_name,
-            resource_group_name=resource_group_name
+def get_azure_stack_output(resource_group, deployment, output):
+    if not STACK_CACHE.get(deployment):
+        STACK_CACHE[deployment] = AzureSession().client.deployments.get(
+            deployment_name=deployment,
+            resource_group_name=resource_group
         )
-    if STACK_CACHE[stack_name].properties.outputs is None:
+    if STACK_CACHE[deployment].properties.outputs is None:
         return None
 
     # deployment has outputs if not None
-    for k, v in STACK_CACHE[stack_name].properties.outputs.items():
-        if k == output_key:
+    for k, v in STACK_CACHE[deployment].properties.outputs.items():
+        if k == output:
             return v["value"]
 
 
-def get_gcp_stack_output(stack_name, project, output_key):
-    if not STACK_CACHE.get(stack_name):
-        deployment = GCP_API.deployments().get(
+def get_gcp_stack_output(project, deployment, output):
+    if not STACK_CACHE.get(deployment):
+        deployment_result = GCPSession().client.deployments().get(
             project=project,
-            deployment=stack_name
+            deployment=deployment
         ).execute()
-        manifest = GCP_API.manifests().get(
+        manifest = GCPSession().client.manifests().get(
             project=project,
-            deployment=stack_name,
-            manifest=deployment["manifest"].split("/")[-1]
+            deployment=deployment,
+            manifest=deployment_result["manifest"].split("/")[-1]
             ).execute()
-        STACK_CACHE[stack_name] = {
-            "deployment": deployment,
+        STACK_CACHE[deployment] = {
+            "deployment": deployment_result,
             "manifest": manifest
         }
-    layout = yaml.load(STACK_CACHE[stack_name]["manifest"]["layout"])
-    for output in layout.get("outputs", []):
-        if output["name"] == output_key:
-            return output["finalValue"]
+    layout = yaml.load(STACK_CACHE[deployment]["manifest"]["layout"])
+    for deployment_output in layout.get("outputs", []):
+        if deployment_output["name"] == output:
+            return deployment_output["finalValue"]
 
 
 def get_stack_output(stack_name, output_key, provider="aws", **kwargs):
@@ -243,7 +217,7 @@ def get_stack_resource(stack_name, resource_id):
         CF_STACK_RESOURCE_CACHE[stack_name] = {}
     if not CF_STACK_RESOURCE_CACHE[stack_name].get(resource_id):
         CF_STACK_RESOURCE_CACHE[stack_name][resource_id] = \
-            BOTO_CF_RESOURCE.StackResource(stack_name, resource_id)
+            CF_STACK_RESOURCE_CACHE.StackResource(stack_name, resource_id)
     return CF_STACK_RESOURCE_CACHE[stack_name][resource_id].physical_resource_id # noqa
 
 
@@ -253,135 +227,3 @@ def call_aws(service, action, arguments={}, result_filter=None):
     if result_filter is None:
         return result
     return jmespath.search(result_filter, result)
-
-
-def get_template_body(url):
-    """ Returns the text of the URL
-
-    Args:
-        url(str): a RFC 1808 compliant URL
-
-    Returns: The text of the target URL
-
-    This function supports 3 different schemes:
-        - http/https
-        - s3
-        - path
-    """
-    url_prefix = os.environ.get("GPWM_TEMPLATE_URL_PREFIX", "")
-    if url_prefix:
-        if url_prefix.endswith("/"):
-            url_prefix = url_prefix[:-1]
-        if url.startswith("/"):
-            url = url[1:]
-        url = f"{url_prefix}/{url}"
-
-    parsed_url = urlparse(url)
-    if "http" in parsed_url.scheme:  # http and https
-        try:
-            request = requests.get(url)
-            request.raise_for_status()
-            body = request.text
-        except requests.exceptions.RequestException as exc:
-            raise SystemExit(exc)
-    elif parsed_url.scheme == "s3":
-        s3 = boto3.resource("s3")
-        obj = s3.Object(parsed_url.netloc, parsed_url.path[1:])
-        extra_args = {k: v[0] for k, v in parse_qs(parsed_url.query).items()}
-        try:
-            body = obj.get(**extra_args)["Body"].read()
-        except s3.meta.client.exceptions.NoSuchBucket as exc:
-            raise SystemExit(
-                f"Error: S3 bucket doesn't exist: {parsed_url.netloc}"
-            )
-        except s3.meta.client.exceptions.NoSuchKey as exc:
-            raise SystemExit(f"Error: S3 object doesn't exist: {url}")
-    elif not parsed_url.scheme:
-        with open(url) as local_file:
-            body = local_file.read()
-    else:
-        raise SystemExit(f"URL scheme not supported: {parsed_url.scheme}")
-
-    return parsed_url, body
-
-
-def parse_mako(stack_name, template_body, parameters):
-    """ Parses Mako templates
-    """
-    # The default for strict_undefined is False. Change to True to
-    # troubleshoot pesky templates
-    mako_template = mako.template.Template(
-        template_body,
-        strict_undefined=False
-    )
-    parameters["get_stack_output"] = get_stack_output
-    parameters["get_stack_resource"] = get_stack_resource
-    parameters["call_aws"] = call_aws
-    try:
-        template = yaml.load(mako_template.render(**parameters))
-    # Ignoring yaml tags unknown to this script, because one might want to use
-    # the providers tags like !Ref, !Sub, etc in their templates
-    except yaml.constructor.ConstructorError as exc:
-        if "could not determine a constructor for the tag" not in exc.problem:
-            raise exc
-    except Exception:
-        raise SystemExit(
-            mako.exceptions.text_error_template().render()
-        )
-    print(template)
-
-    # Automatically adds and merges outputs for every resource in the
-    # template - outputs are automatically exported.
-    # An existing output in the template will not be overriden by an
-    # automatic output.
-    outputs = {
-        k: {
-            "Value": {"Ref": k},
-            "Export": {"Name": "{}-{}".format(stack_name, k)}
-        } for k in template.get("Resources", {}).keys()
-    }
-    outputs.update(template.get("Outputs", {}))
-    if outputs:
-        template["Outputs"] = outputs
-    return template
-
-
-def parse_jinja(stack_name, template_body, parameters):
-    """ Parses Jinja templates
-    """
-    jinja_template = jinja2.Template(template_body)
-    parameters["get_stack_output"] = get_stack_output
-    parameters["get_stack_resource"] = get_stack_resource
-    parameters["call_aws"] = call_aws
-    try:
-        template = yaml.load(jinja_template.render(**parameters))
-    # Ignoring yaml tags unknown to this script, because one might want to use
-    # the providers tags like !Ref, !Sub, etc in their templates
-    except yaml.constructor.ConstructorError as exc:
-        if "could not determine a constructor for the tag" not in exc.problem:
-            raise exc
-    # Automatically adds and merges outputs for every resource in the
-    # template - outputs are automatically exported.
-    # An existing output in the template will not be overriden by an
-    # automatic output.
-    outputs = {
-        k: {
-            "Value": {"Ref": k},
-            "Export": {"Name": "{}-{}".format(stack_name, k)}}
-        for k in template.get("Resources", {}).keys()
-    }
-    outputs.update(template.get("Outputs", {}))
-    template["Outputs"] = outputs
-    return template
-
-
-def parse_json(stack_name, template_body, parameters):
-    """ Parses Json templates
-    """
-    raise SystemExit("json templates not yet supported")
-
-
-def parse_yaml(stack_name, template_body, parameters):
-    """ Parses YAML templates
-    """
-    raise SystemExit("yaml templates not yet supported")

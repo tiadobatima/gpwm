@@ -195,9 +195,7 @@ def main():
     stack_file = args.stack.read()
     template_params = {
         "build_id": args.build_id,
-        "call_aws": gpwm.utils.call_aws,
-        "get_stack_output": gpwm.utils.get_stack_output,
-        "get_stack_resource": gpwm.utils.get_stack_resource
+        "utils": gpwm.utils
     }
 
     # try rendering stack with mako first, if fails try jinja,
@@ -208,7 +206,7 @@ def main():
         logging.debug("Trying to render mako input file...")
         stack_template = mako.template.Template(
             stack_file,
-            strict_undefined=False
+            strict_undefined=True
         )
         try:
             rendered_template = stack_template.render(**template_params)
@@ -218,7 +216,7 @@ def main():
             raise SystemExit(mako.exceptions.text_error_template().render())
     elif templating_engine == "jinja":
         stack_template = jinja2.Template(stack_file)
-        rendered_template = yaml.load(stack_template.render(**template_params))
+        rendered_template = stack_template.render(**template_params)
     else:
         rendered_template = stack_file
 

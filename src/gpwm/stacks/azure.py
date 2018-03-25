@@ -13,15 +13,10 @@
 # limitations under the License.
 
 import json
-import yaml
 
+import gpwm.renderers
 import gpwm.stacks
-from gpwm.utils import AZURE_API_CLIENT
-from gpwm.utils import get_template_body
-from gpwm.utils import parse_json
-from gpwm.utils import parse_jinja
-from gpwm.utils import parse_mako
-from gpwm.utils import parse_yaml
+from gpwm.sessions import Azure as AzureSession
 
 
 class AzureStack(gpwm.stacks.BaseStack):
@@ -71,29 +66,29 @@ class AzureStack(gpwm.stacks.BaseStack):
             self.template = json.dumps(self.template, indent=2, sort_keys=True)
         else:
             parsed_url, template_body = \
-                gpwm.utils.get_template_body(self.template)
+                gpwm.renderers.get_template_body(self.template)
 
             if parsed_url.path[-5:] == ".mako":
                 if not hasattr(self, "parameters"):
                     self.parameters = {}
                 self.parameters["build_id"] = self.BuildId
                 args = [self.name, template_body, self.parameters]
-                template = parse_mako(*args)
+                template = gpwm.renderers.parse_mako(*args)
                 # mako doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.parameters
             elif parsed_url.path[-6:] == ".jinja":
                 args = [self.name, template_body, self.parameters]
-                template = parse_jinja(*args)
+                template = gpwm.renderers.parse_jinja(*args)
                 # jinja doesn't need Parameters as they're available to the
                 # template as python variables
                 del self.parameters
             elif parsed_url.path[-5:] == ".json":
                 args = [self.name, template_body, self.parameters]
-                template = parse_json(*args)
+                template = gpwm.renderers.parse_json(*args)
             elif parsed_url.path[-5:] == ".yaml":
                 args = [self.name, template_body, self.parameters]
-                template = parse_yaml(*args)
+                template = gpwm.renderers.parse_yaml(*args)
             else:
                 raise SystemExit("file extension not supported")
 
@@ -121,7 +116,7 @@ class AzureStack(gpwm.stacks.BaseStack):
 
     def upsert(self, wait=False):
         self.create_resource_group()
-        result = AZURE_API_CLIENT.deployments.create_or_update(
+        result = AzureSession().client.deployments.create_or_update(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name,
             properties=self.deploymentProperties
@@ -136,7 +131,7 @@ class AzureStack(gpwm.stacks.BaseStack):
         self.upsert(wait=wait)
 
     def delete(self, wait=False):
-        result = AZURE_API_CLIENT.deployments.delete(
+        result = AzureSession().client.deployments.delete(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name
         )
@@ -152,24 +147,25 @@ class AzureStack(gpwm.stacks.BaseStack):
 
     def validate(self):
         self.create_resource_group()
-        result = AZURE_API_CLIENT.deployments.validate(
+        result = AzureSession().client.deployments.validate(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name,
             properties=self.deploymentProperties
         )
+        if result.error:
+            raise SystemExit(result.error.message)
 
     def render(self):
         print(json.dumps(self.deploymentProperties, indent=2))
 
     def create_resource_group(self):
-        return AZURE_API_CLIENT.resource_groups.create_or_update(
+        return AzureSession().client.resource_groups.create_or_update(
             self.resourceGroup["name"],
             self.resourceGroupParameters
         )
 
     def delete_resource_group(self):
-        result = AZURE_API_CLIENT.resource_groups.delete(
+        result = AzureSession().client.resource_groups.delete(
             self.resourceGroup["name"],
         )
         result.wait()
-
