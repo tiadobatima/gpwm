@@ -7,7 +7,7 @@
     environment = "dev"
 %>
 StackName: ${stack_type}-${team}-${environment}
-TemplateBody: examples/consumables/network/vpc.mako
+TemplateBody: examples/consumables/aws/network/vpc.mako
 Parameters:
   team: ${team}
   environment: ${environment}

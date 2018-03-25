@@ -12,13 +12,13 @@ $schema: "http://schema.management.azure.com/schemas/2015-01-01/deploymentTempla
 contentVersion: 1.0.0.0
 parameters:
 variables:
-  vnet: !ARM {stack: platform-network-vnet, resource-group: platform-network-vnet-rg, output: virtualNetwork}
+  vnet: !ARM {resource-group: platform-network-vnet-rg, deployment: platform-network-vnet, output: virtualNetwork}
 resources:
   - type: Microsoft.Compute/availabilitySets
     name: ${team}-${environment}-${service}-as
     apiVersion: "2017-12-01"
     location: "[resourceGroup().location]"
-    properties: {}
+    properties:
     tags:
       team: ${team}
       environment: ${environment}

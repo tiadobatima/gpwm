@@ -296,29 +296,32 @@ At this point, these types of *stacks/deployments* are supported:
 * [Shell](docs/shell.md) (procedural)
 
 
-Regardless of the provider, the idea behind this tool is to:
+Regardless of the provider, the design principles for this tool are:
 
 * Never abstract, or dumb-down the cloud provider's native resource manager DSL,
   only enhance it
-* Never race the provider for features. We are going to lose.
-* Simplicity and flexibility: Allow for small, focused *stack/deployment* 
-  building blocks that can be reused and loosely connected with other
-  deployments, without having to deploy a massive tightly coupled group of
-  resources
+* Use and operation of the tool should be easy for mere mortals
+* Never race the provider for features. We are going to lose
+* Simplicity, flexibility, and reusability: Allow for small, focused
+  *stack/deployment* building blocks that can be reused and loosely connected
+  with other deployments, without having to deploy a massive tightly coupled
+  group of resources
 * Never mix concepts and constructs from different cloud providers, eg AWS *VPC*
   is **not** the same as Azure *vnet*. Related to *abstraction* mentioned
   above, for maximum flexibility and efficiency, we want to be able to tune
   every knob of a resource. And this can only be done, if we treat every
-  resource natively.
+  resource natively
 * Assume that we know better than the cloud provider about how their
   infrastructure should be managed
+* The code should avoid the more complex and obscure Python idioms, so people
+  can understand and change the code more easily.
 
 With the guidelines above, the tool always attempts to provide the cloud
-provider's *look-and-feel* for the syntax/constructs in the stacks/deployment
+provider's *look-and-feel* for the syntax/constructs of the stacks/deployment
 files: An AWS Clouformation stack looks like Cloudformation; an ARM
 deployment file looks like ARM, etc. To illustrate, in AWS, the variable and
 section names used in a CFN stack are *UpperCamelCase*, in Azure they are
-*lowerCamelCase*, and GCP uses *snake_case* (python-like).
+*lowerCamelCase*, and GCP uses *snake_case* (Python-like).
 This tool tries hard to keep that spirit, so not to throw off users already
 familiar with a particular cloud provider's DSL.
 

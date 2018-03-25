@@ -6,7 +6,7 @@ name: gus-test-deployment-1
 description: Gus test stack 1
 project: dev-island
 imports:
-  - path: tests/stack/gcp/ox.txt
+  - path: examples/stacks/gcp/ox.txt
 resources:
 - type: compute.v1.instance
   name: gus-test-1

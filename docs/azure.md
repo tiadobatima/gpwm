@@ -131,17 +131,22 @@ resources in one cloud provider and feed to stacks in other providers.
 
 ### !ARM
 
-It take a dict with "deployment", "output", and "subscription" key as arguments.
+It take a dict with "deployment", "resource-group", and "output" as hash keys.
 It returns the value of the output for that particular ARM deployment.
 
 ```
-vm: !ARM {deployment: ${my_other_stack}, output: vmName, subscription: my-subscription}
+vm: !ARM {resource-group: ${my_rg}, deployment: ${my_stack}, output: vmName}
 ```
 
-The underlying function *get_stack_output()* can also be used for further processing of the value:
+The underlying function *get_azure_stack_output()* can also be used for further
+processing of the output value:
 ```
 <%
-    vm = get_stack_output("my_other_stack", "vmName", provider="azure", subscription="my-subscription")
+    vm = get_azure_stack_output(
+        deployment="my_deployment",
+        resource_group="my_resource_group",
+        output="vm_name"
+    )
 %>
 my-vm-name: ${vm}
 ```

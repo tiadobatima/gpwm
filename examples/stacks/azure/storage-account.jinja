@@ -1,0 +1,20 @@
+{% set team = "accounting" %}
+{% set environment = "dev" %}
+{% set service = "web" %}
+
+name: {{team}}-{{environment}}-{{service}}
+type: azure
+resourceGroup:
+  name: {{team}}-{{environment}}-{{service}}-rg
+  location: East US
+  tags:
+    team: {{team}}
+    environment: {{environment}}
+    service: {{service}}
+  persist: false
+template: examples/consumables/azure/storage-account.mako
+parameters:
+  team: {{team}}
+  environment: {{environment}}
+  service: {{service}}
+mode: Incremental
