@@ -27,17 +27,66 @@ multi-factor auth.
 
 ### Using a CLI Profile
 
-Follow the instructions [here](https://developers.google.com/identity/protocols/application-default-credentials)
-At this point only ```get_client_from_cli_profile()``` is implemented.
+This is the simplest of the methods, but not recommended for anything but
+testing because it uses *your own* credentials to login to Azure. Basically,
+to set it up just run:
 
-Further reference:
+```
+azure login
+```
 
-* https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-get-started?view=azure-python#step-2)
+In a nutshell, this method sets up an Azure auth profile in
+`~/azure/azureProfile`.
+
+For further reference on this auth method:
+
+* https://github.com/AzureAD/azure-activedirectory-library-for-python
+* https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-get-started?view=azure-python#step-2
 
 
-### Using ADAL
+### Using Service Principal Auth File
 
-Not yet implemented. This will require some environment variable to be setup.
+This method uses a *service principal*, which is fancy wording for a
+*service user*, instead of your own account. To set it up, just set the path to
+the profile in the `AZURE_AUTH_LOCATION` environment variable. For example:
+
+```
+az ad sp create-for-rbac -n myPipeline --sdk-auth > ~/.azure/myPipelineProfile.json
+export AZURE_AUTH_LOCATION=~/.azure/myPipelineProfile.json
+```
+
+This variable is honoured by the Azure SDKs (at least Python and .NET)
+
+For further reference on this auth method:
+
+* https://github.com/MicrosoftDocs/azure-docs-sdk-python/blob/master/docs-ref-conceptual/python-sdk-azure-authenticate.md
+* https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L134
+
+
+### Using Service Principal Environment Variables
+
+Similar method as `Service Principal` above, but no need to rely on a file if
+your auth info can be obtained dynamically. These environment variables must be
+set:
+
+* AZURE_CLIENT_ID
+* AZURE_CLIENT_SECRET
+* AZURE_TENANT_ID
+* AZURE_SUBSCRIPTION_ID
+
+```
+az ad sp create-for-rbac -n myPipeline --sdk-auth
+export AZURE_CLIENT_ID=3b433e78-cac0-4a23-cd8b-34c5b45ce51a && export
+export AZURE_CLIENT_SECRET=b8b467d0-cef4-4b8f-a573-76537148c7d && export
+export AZURE_SUBSCRIPTION_ID=0432b1d0-5e2e-4e2a-ad73-e33d0652e5b2 && export
+export AZURE_TENANT_ID=e6358ac9-aacf-33fc-9ee4-cf93fbfe5d68
+```
+
+Notice that these environment variables don't seem to be honoured anywhere in
+any Azure SDK, but they are used in some of their code examples, so this tools
+is reusing them to make it easier for people who have been playing with their
+examples.
+
 For reference:
 
 * https://github.com/AzureAD/azure-activedirectory-library-for-python
@@ -110,6 +159,11 @@ mode: Incremental
 The deployment documents above are roughly equivalent to:
 
 ```
+# Using GPWM
+gpwm create path/to/storage-account.mako
+
+
+# Using the Azure CLIa - obviously you don't get the goodies this way
 az group create \
     -g accounting-dev-web-rg \
     --location eastus \
@@ -139,10 +193,10 @@ vm: !ARM {resource-group: ${my_rg}, deployment: ${my_stack}, output: vmName}
 ```
 
 The underlying function *get_azure_stack_output()* can also be used for further
-processing of the output value:
+processing of the output value, in mako or jinja:
 ```
 <%
-    vm = get_azure_stack_output(
+    vm = utils.get_azure_stack_output(
         deployment="my_deployment",
         resource_group="my_resource_group",
         output="vm_name"
