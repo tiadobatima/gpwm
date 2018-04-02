@@ -16,89 +16,16 @@
 """ Session and connection handlers for the cloud provider's APIs
 """
 
+import importlib
 import os
+import uuid
 
 import apiclient.discovery  # GCP API
 from azure.common.client_factory import get_client_from_auth_file
 from azure.common.client_factory import get_client_from_cli_profile
 from azure.common.credentials import ServicePrincipalCredentials
-from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.resource import SubscriptionClient
 import boto3
-
-
-def get_arm_client_via_service_principal():
-    """ Returns an API client with via service principal variables
-
-    A ResourceManagementClient() object is returned if all these
-    environment variables are set:
-        * AZURE_CLIENT_ID
-        * AZURE_CLIENT_SECRET
-        * AZURE_SUBSCRIPTION_ID
-        * AZURE_TENANT_ID
-
-    If any of these variables isn't set, the function returns None
-
-    Args:
-
-    Returns: A ResourceManagementClient() object
-
-    Reference:
-        *  https://github.com/MicrosoftDocs/azure-docs-sdk-python/blob/master/docs-ref-conceptual/python-sdk-azure-authenticate.md # noqa
-    """
-    client = os.environ.get("AZURE_CLIENT_ID")
-    secret = os.environ.get("AZURE_CLIENT_SECRET")
-    subscription = os.environ.get("AZURE_SUBSCRIPTION_ID")
-    tenant = os.environ.get("AZURE_TENANT_ID")
-
-    if client and secret and subscription and tenant:
-        creds = ServicePrincipalCredentials(
-            client_id=client,
-            secret=secret,
-            tenant=tenant
-        )
-        return ResourceManagementClient(
-            credentials=creds,
-            subscription_id=subscription
-        )
-
-
-def get_arm_client_via_auth_file():
-    """ Returns an API client via auth file (AZURE_AUTH_LOCATION env)
-
-    An auth file (profile) can be setup, normally via the CLI with the
-    command:
-
-        # az ad sp create-for-rbac --sdk-auth > ~/.azure/myProfile.json
-        # export AZURE_AUTH_LOCATION=~/.azure/myProfile.json
-
-    Args:
-
-    Returns: A ResourceManagementClient() object
-
-    Reference:
-        * https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L134 # noqa
-
-    """
-    if os.environ.get("AZURE_AUTH_LOCATION"):
-        return get_client_from_auth_file(ResourceManagementClient)
-
-
-def get_arm_client_via_cli_profile():
-    """ Returns an API client via CLI profile
-
-    A CLI profile can be setup with the following command:
-
-        # az login
-    Args:
-
-    Returns: A ResourceManagementClient() object
-
-    Reference:
-        * https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest #noqa
-        * https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L34 # noqa
-
-    """
-    return get_client_from_cli_profile(ResourceManagementClient)
 
 
 class Singleton:
@@ -128,25 +55,121 @@ class AWS(Singleton):
         return self._resource
 
 
-class Azure(Singleton):
-    """ Class representing an Azure Resource Manager API client """
+def get_azure_api_client(cls, **kwargs):
+    """ Returns an Azure API client
 
-    @property
-    def client(self):
-        if not hasattr(self, "_client"):
-            # Attempts via service principal (AZURE_* variables) first
-            self._client = get_arm_client_via_service_principal() or None
+    Returns an API client class either from a service principal auth
+    file (if specified by AZURE_AUTH_LOCATION environment variable, or
+    from a CLI profile.
 
-            # Then attempts via auth file
-            if not self._client:
-                self._client = get_arm_client_via_auth_file()
+    This function is just a helper for AzureClient.get()
 
-            # If nothing else works, tries the CLI profile
-            if not self._client:
-                self._client = get_arm_client_via_cli_profile()
+    Args:
+        cls(class): The client class, for example
+            azure.mgmt.resource.SubscriptionClient
+        kwargs(dict): optional keyword arguments used by either
+            get_client_from_auth_file() or get_client_from_cli_profile(),
+            for example client_id, secret, tenant
 
-        print(self._client.config.credentials.__dict__)
-        return self._client
+    https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py # noqa
+    """
+
+    if os.environ.get("AZURE_AUTH_LOCATION"):
+        return get_client_from_auth_file(cls, **kwargs)
+    return get_client_from_cli_profile(cls, **kwargs)
+
+
+class AzureClient(Singleton):
+    """ Class for retrieving Azure API clients """
+
+    __CACHE__ = {}
+
+    def get(self, client, client_id=None, secret=None, tenant=None,
+            subscription=None):
+        """ Returns Azure API clients
+
+        This method returns API clients based on various inputs in
+        addition to the function arguments, in this priority:
+            1- Method arguments
+            2- Environment variables specifying the credentials:
+                * AZURE_CLIENT_ID: UUID representing the user
+                * AZURE_CLIENT_SECRET: secret used for user auth
+                * AZURE_TENANT_ID: UUID representing the Azure tenant
+                * AZURE_SUBSCRIPTION: Either an UUID or the subscription
+                    name. If the subscription name is supplied, the UUID
+                    is obtained by making a *SubscriptionClient.list()*
+                    API call.
+            3- The AZURE_AUTH_LOCATION environment variable which
+               specifies a path to the service principal auth file. The
+               auth. Can be obtained, for example by creating a new
+               service principal:
+
+                # az ad sp create-for-rbac --sdk-auth > ~/.azure/myProfile.json
+                # export AZURE_AUTH_LOCATION=~/.azure/myProfile.json
+
+            4- A CLI profile. The profile can be obtained by CLI logins:
+
+                # az login
+
+               Avoid using the CLI method in production. This is usually for
+               "real people", not for applications. Use one of the methods
+               above which makes use of service principals.
+
+        Args:
+            client(str): An alias to the API client, for example:
+                - compute.ComputeManagementClient - shortcut to azure.mgmt.compute.ComputeManagementClient
+                - network.NetworkManagementClient - shortcut to azure.mgmt.network.NetworkManagementClient
+                - resource.SubscriptionClient -  shortcut to  azure.mgmt.resource.SubscriptionClient
+                - resource.ResourceManagementClient - azure.mgmt.resource.resource.ResourceManagementClient
+
+        Returns: An "azure.mgmt.*.*()" object
+
+        Reference:
+            * https://github.com/MicrosoftDocs/azure-docs-sdk-python/blob/master/docs-ref-conceptual/python-sdk-azure-authenticate.md # noqa
+            * https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L134 # noqa
+            * https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest #noqa
+            * https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L34 # noqa
+        """
+        client_id = client_id or os.environ.get("AZURE_CLIENT_ID")
+        secret = secret or os.environ.get("AZURE_CLIENT_SECRET")
+        tenant = tenant or os.environ.get("AZURE_TENANT_ID")
+        subscription = subscription or \
+            os.environ.get("AZURE_SUBSCRIPTION")
+
+        # Get the api client class
+        full_path = f"azure.mgmt.{client}".split(".")
+        class_name = full_path[-1]
+        module = ".".join(full_path[:-1])
+        cls = getattr(importlib.import_module(module), class_name)
+
+        kwargs = {}
+
+        # Find the subscription id
+        if subscription:
+            # resolve UUID of the subscription (if passed as name)
+            try:
+                subscription_id = str(uuid.UUID(subscription, version=4))
+            except ValueError as exc:
+                subscription_client = get_azure_api_client(SubscriptionClient)
+                for s in subscription_client.subscriptions.list():
+                    print(s.__dict__)
+                    if s.display_name == subscription:
+                        subscription_id = s.subscription_id
+                        break
+                else:
+                    raise SystemExit(f"Subscription {subscription} not found")
+            kwargs["subscription_id"] = subscription_id
+
+        # Get a credentials object if creds passed via this method or
+        # environment variables
+        if client and secret and tenant:
+            kwargs["credentials"] = ServicePrincipalCredentials(
+                client_id=client_id,
+                secret=secret,
+                tenant=tenant
+            )
+
+        return get_azure_api_client(cls, **kwargs)
 
 
 class GCP(Singleton):
