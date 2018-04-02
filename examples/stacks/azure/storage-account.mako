@@ -20,7 +20,3 @@ parameters:
   environment: ${environment}
   service: ${service}
 mode: Incremental
-#templateLink: https://example.com/path/to/template.json
-#parametersLink: https://example.com/path/to/parameters.json
-xoxoxo: ${utils.get_azure_stack_output(resource_group="platform-network-vnet-rg",
-deployment="platform-network-vnet", output="virtualNetwork")}

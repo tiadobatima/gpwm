@@ -23,7 +23,7 @@ import boto3
 import jmespath
 
 from gpwm.sessions import AWS as AWSSession
-from gpwm.sessions import Azure as AzureSession
+from gpwm.sessions import AzureClient
 from gpwm.sessions import GCP as GCPSession
 
 STACK_CACHE = {}
@@ -98,22 +98,21 @@ def yaml_arm_constructor(loader, node):
     """ Implements the '!ARM' YAML tag
 
     The tag takes a yaml mapping like this as node (argument):
-    {resource-group: ${resource_group_name}, deployment=${stack}, output: ${output_name}} # noqa
+    {resource-group: ${resource_group_name}, deployment=${stack}, output: ${output_name}, subscription: ${subscription_name}} # noqa
 
     Example:
       storageAccount: !ARM {resource-group: ${storage_resource_group}, deployment=${stack}, output: ${storageName}}
     """
     output_dict = loader.construct_mapping(node)
-    if "output" in output_dict.keys():
-        return get_azure_stack_output(
-            resource_group=output_dict["resource-group"],
-            deployment=output_dict["deployment"],
-            output=output_dict["output"]
-        )
+    return get_azure_stack_output(
+        resource_group=output_dict["resource-group"],
+        deployment=output_dict["deployment"],
+        output=output_dict["output"],
+        subscription=output_dict.get("subscription")
+    )
 #    elif "resource-id" in output_dict.keys():
 #        return get_stack_resource(stack_name, output_dict["resource_id"])
 #    else:
-    raise SystemExit("Either 'output' or 'resource_id' must be provided")
 
 
 def yaml_gcpdm_constructor(loader, node):
@@ -170,9 +169,12 @@ def get_aws_stack_output(stack, output):
             return stack_output["OutputValue"]
 
 
-def get_azure_stack_output(resource_group, deployment, output):
+def get_azure_stack_output(
+        resource_group, deployment, output, subscription=None
+    ):
     if not STACK_CACHE.get(deployment):
-        STACK_CACHE[deployment] = AzureSession().client.deployments.get(
+        api_client = AzureClient().get("resource.ResourceManagementClient")
+        STACK_CACHE[deployment] = api_client.deployments.get(
             deployment_name=deployment,
             resource_group_name=resource_group
         )

@@ -23,28 +23,55 @@ use the *Makefile* - see the [development page](docs/development.md).
 This is an annoying topic. There are several way to authenticate against Azure
 Cloud, and depending on what we want to do, or how the Azure account is setup,
 some of these methods might not work, for example some of these don't work with
-multi-factor auth.
+multi-factor auth. To make it easier for the use to both test and use this tool
+in production, as of this writing all authentication methods supported:
 
-### Using a CLI Profile
+1. Service principal via environment variables
+2. Service principal via auth file
+3. CLI profile
 
-This is the simplest of the methods, but not recommended for anything but
-testing because it uses *your own* credentials to login to Azure. Basically,
-to set it up just run:
+If multiple authentication methods are setup, the method in chosen based on the
+order above.
+
+This is a description of the authentication methods:
+
+### Authenticating using Service Principal Environment Variables
+
+Similar method as `Service Principal` above, but no need to rely on a file if
+your auth info can be obtained dynamically. These environment variables must be
+set:
+
+* AZURE_CLIENT_ID: The UUID of the service principal
+* AZURE_CLIENT_SECRET: The secret the service principal uses to autenticate
+* AZURE_TENANT_ID: The UUID of the tenant
+* AZURE_SUBSCRIPTION: Either the UUID of the subscription, or its name
+
+For example:
 
 ```
-azure login
+az ad sp create-for-rbac -n myPipeline --sdk-auth
+export AZURE_CLIENT_ID=3b433e78-cac0-4a23-cd8b-34c5b45ce51a
+export AZURE_CLIENT_SECRET=b8b467d0-cef4-4b8f-a573-76537148c7d
+export AZURE_TENANT_ID=e6358ac9-aacf-33fc-9ee4-cf93fbfe5d68
+export AZURE_SUBSCRIPTION=0432b1d0-5e2e-4e2a-ad73-e33d0652e5b2
+
+# Or using the subscription name
+export AZURE_SUBSCRIPTION=dev-subscription
 ```
 
-In a nutshell, this method sets up an Azure auth profile in
-`~/azure/azureProfile`.
+Notice that unlike AWS, these environment variables aren't honoured anywhere in
+the Azure SDK, but they are used in some of their code examples, so this tool
+is using the same variable names to make it familiar for people that have been
+playing with Azure's example code.
 
-For further reference on this auth method:
+For reference:
 
 * https://github.com/AzureAD/azure-activedirectory-library-for-python
-* https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-get-started?view=azure-python#step-2
+* https://azure.microsoft.com/en-us/resources/samples/resource-manager-python-template-deployment/
+* https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli?view=azure-cli-latest
 
 
-### Using Service Principal Auth File
+### Autheticating With a Service Principal Auth File
 
 This method uses a *service principal*, which is fancy wording for a
 *service user*, instead of your own account. To set it up, just set the path to
@@ -63,44 +90,30 @@ For further reference on this auth method:
 * https://github.com/Azure/azure-sdk-for-python/blob/master/azure-common/azure/common/client_factory.py#L134
 
 
-### Using Service Principal Environment Variables
+### Authenticating With a CLI Profile
 
-Similar method as `Service Principal` above, but no need to rely on a file if
-your auth info can be obtained dynamically. These environment variables must be
-set:
-
-* AZURE_CLIENT_ID
-* AZURE_CLIENT_SECRET
-* AZURE_TENANT_ID
-* AZURE_SUBSCRIPTION_ID
+This is the simplest of the methods. To set it up, just do a CLI login:
 
 ```
-az ad sp create-for-rbac -n myPipeline --sdk-auth
-export AZURE_CLIENT_ID=3b433e78-cac0-4a23-cd8b-34c5b45ce51a && export
-export AZURE_CLIENT_SECRET=b8b467d0-cef4-4b8f-a573-76537148c7d && export
-export AZURE_SUBSCRIPTION_ID=0432b1d0-5e2e-4e2a-ad73-e33d0652e5b2 && export
-export AZURE_TENANT_ID=e6358ac9-aacf-33fc-9ee4-cf93fbfe5d68
+azure login
 ```
 
-Notice that these environment variables don't seem to be honoured anywhere in
-any Azure SDK, but they are used in some of their code examples, so this tools
-is reusing them to make it easier for people who have been playing with their
-examples.
+In a nutshell, this method sets up an Azure auth profile in
+`~/azure/azureProfile`, and is most suitable for users that are testing with
+their own credentials. Avoid using this method in production.
 
-For reference:
+For further reference on this auth method:
 
 * https://github.com/AzureAD/azure-activedirectory-library-for-python
-* https://azure.microsoft.com/en-us/resources/samples/resource-manager-python-template-deployment/
-* https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli?view=azure-cli-latest
+* https://docs.microsoft.com/en-us/python/azure/python-sdk-azure-get-started?view=azure-python#step-2
 
 
 ## Azure Deployment Examples 
 
 Similarly to GCP, Azure APIs, SDKs, CLI and documentation aren't as good and
-concise as AWS', so we made a choice to use the naming standard of the Azure
-API for the stack/deployment DSL configuration, not the CLI or python SDK
-naming (which also matches the ARM's template naming scheme), which means the
-YAML keys representing an ARM deployment must be *lowerCamelCased*
+concise as AWS', so we made the choice of using the naming standard of the Azure
+API/AEM for the stack/deployment DSL configuration, not the CLI or python SDK
+naming. So, the YAML keys representing an ARM deployment is *lowerCamelCased*
 
 ### Mako - storage-account.mako
 

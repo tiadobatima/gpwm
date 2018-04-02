@@ -16,7 +16,7 @@ import json
 
 import gpwm.renderers
 import gpwm.stacks
-from gpwm.sessions import Azure as AzureSession
+from gpwm.sessions import AzureClient
 
 
 class AzureStack(gpwm.stacks.BaseStack):
@@ -93,6 +93,9 @@ class AzureStack(gpwm.stacks.BaseStack):
                 raise SystemExit("file extension not supported")
 
             self.template = template
+            self.api_client = AzureClient().get(
+                "resource.ResourceManagementClient"
+            )
 
     @property
     def resourceGroupParameters(self):
@@ -110,13 +113,14 @@ class AzureStack(gpwm.stacks.BaseStack):
                 "name",
                 "resourceGroup",
                 "type",
-                "BuildId"
+                "BuildId",
+                "api_client"
             ]
         }
 
     def upsert(self, wait=False):
         self.create_resource_group()
-        result = AzureSession().client.deployments.create_or_update(
+        result = self.api_client.deployments.create_or_update(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name,
             properties=self.deploymentProperties
@@ -131,7 +135,7 @@ class AzureStack(gpwm.stacks.BaseStack):
         self.upsert(wait=wait)
 
     def delete(self, wait=False):
-        result = AzureSession().client.deployments.delete(
+        result = self.api_client.deployments.delete(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name
         )
@@ -147,7 +151,7 @@ class AzureStack(gpwm.stacks.BaseStack):
 
     def validate(self):
         self.create_resource_group()
-        result = AzureSession().client.deployments.validate(
+        result = self.api_client.deployments.validate(
             resource_group_name=self.resourceGroup["name"],
             deployment_name=self.name,
             properties=self.deploymentProperties
@@ -159,13 +163,13 @@ class AzureStack(gpwm.stacks.BaseStack):
         print(json.dumps(self.deploymentProperties, indent=2))
 
     def create_resource_group(self):
-        return AzureSession().client.resource_groups.create_or_update(
+        return self.api_client.resource_groups.create_or_update(
             self.resourceGroup["name"],
             self.resourceGroupParameters
         )
 
     def delete_resource_group(self):
-        result = AzureSession().client.resource_groups.delete(
+        result = self.api_client.resource_groups.delete(
             self.resourceGroup["name"],
         )
         result.wait()
