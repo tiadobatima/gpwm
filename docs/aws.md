@@ -231,7 +231,7 @@ automated pipeline-based updates.
 The way it works is simple. Add a *"-r"* option to the *"update"* action:
 
 ```
-python ci/cf-wrapper.py update stacks/network/vpc-demo-dev.yaml -r
+python gpwm.py update stacks/network/vpc-demo-dev.yaml -r
 ---------- Change Set ----------
 Capabilities: []
 ChangeSetId:
@@ -292,12 +292,12 @@ VPC: !Cloudformation {stack: my-vpc-stack, resource_id: VPC}
 ```
 Sometimes we need to do further processing of the value returned. So, instead
 of using the !Cloudformation tag, we can just use the underlying functions
-*get_stack_output()* or *get_stack_re
-source()* to get the output or the physical resource_id values:
+*get_aws_stack_output()* or *get_aws_stack_resource()* to get the output or
+ the physical resource_id values:
 ```
 <%
     # "my.subdomain.company.com" into "my-subdomain-company-com"
-    hostedzone = get_stack_output(common_stack, "Hostezone")
+    hostedzone = get_aws_stack_output(common_stack, "Hostezone")
     s3_bucket = "-".join(hostedzone.split("."))
 %>
 S3Bucket: ${s3_bucket}
