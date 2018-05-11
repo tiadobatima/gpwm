@@ -14,6 +14,9 @@
 
 import json
 
+from azure.mgmt.resource.resources.models import ParametersLink
+from azure.mgmt.resource.resources.models import TemplateLink
+
 import gpwm.renderers
 import gpwm.stacks
 from gpwm.sessions import AzureClient
@@ -62,40 +65,52 @@ class AzureStack(gpwm.stacks.BaseStack):
         """
         super().__init__(**kwargs)
 
-        if isinstance(self.template, dict):
-            self.template = json.dumps(self.template, indent=2, sort_keys=True)
-        else:
-            parsed_url, template_body = \
-                gpwm.renderers.get_template_body(self.template)
-
-            if parsed_url.path[-5:] == ".mako":
-                if not hasattr(self, "parameters"):
-                    self.parameters = {}
-                self.parameters["build_id"] = self.BuildId
-                args = [self.name, template_body, self.parameters]
-                template = gpwm.renderers.parse_mako(*args)
-                # mako doesn't need Parameters as they're available to the
-                # template as python variables
-                del self.parameters
-            elif parsed_url.path[-6:] == ".jinja":
-                args = [self.name, template_body, self.parameters]
-                template = gpwm.renderers.parse_jinja(*args)
-                # jinja doesn't need Parameters as they're available to the
-                # template as python variables
-                del self.parameters
-            elif parsed_url.path[-5:] == ".json":
-                args = [self.name, template_body, self.parameters]
-                template = gpwm.renderers.parse_json(*args)
-            elif parsed_url.path[-5:] == ".yaml":
-                args = [self.name, template_body, self.parameters]
-                template = gpwm.renderers.parse_yaml(*args)
-            else:
-                raise SystemExit("file extension not supported")
-
-            self.template = template
-            self.api_client = AzureClient().get(
-                "resource.ResourceManagementClient"
+        # Can't have both template and templateLink
+        if hasattr(self, "templateLink") and hasattr(self, "template"):
+            raise SystemExit(
+                f"Please specify either template and templateLink"
             )
+
+        if hasattr(self, "templateLink"):
+            self.templateLink =  TemplateLink(self.templateLink)
+        if hasattr(self, "parametersLink"):
+            self.parametersLink = ParametersLink(self.parametersLink)
+
+        if hasattr(self, "template"):
+            # If template not already a dict, render from path/URL
+            if not isinstance(self.template, dict):
+                parsed_url, template_body = \
+                    gpwm.renderers.get_template_body(self.template)
+
+                if parsed_url.path[-5:] == ".mako":
+                    if not hasattr(self, "parameters"):
+                        self.parameters = {}
+                    self.parameters["build_id"] = self.BuildId
+                    args = [self.name, template_body, self.parameters]
+                    template = gpwm.renderers.parse_mako(*args)
+                    # mako doesn't need Parameters as they're available to the
+                    # template as python variables
+                    del self.parameters
+                elif parsed_url.path[-6:] == ".jinja":
+                    args = [self.name, template_body, self.parameters]
+                    template = gpwm.renderers.parse_jinja(*args)
+                    # jinja doesn't need Parameters as they're available to the
+                    # template as python variables
+                    del self.parameters
+                elif parsed_url.path[-5:] == ".json":
+                    args = [self.name, template_body, self.parameters]
+                    template = gpwm.renderers.parse_json(*args)
+                elif parsed_url.path[-5:] == ".yaml":
+                    args = [self.name, template_body, self.parameters]
+                    template = gpwm.renderers.parse_yaml(*args)
+                else:
+                    raise SystemExit("file extension not supported")
+
+                self.template = template
+
+        self.api_client = AzureClient().get(
+            "resource.ResourceManagementClient"
+        )
 
     @property
     def resourceGroupParameters(self):

@@ -93,17 +93,21 @@ def parse_mako(stack_name, template_body, parameters):
 #    parameters["get_stack_resource"] = get_stack_resource
 #    parameters["call_aws"] = call_aws
     try:
-        template = yaml.load(mako_template.render(**parameters))
-    # Ignoring yaml tags unknown to this script, because one might want to use
-    # the providers tags like !Ref, !Sub, etc in their templates
-    except yaml.constructor.ConstructorError as exc:
-        if "could not determine a constructor for the tag" not in exc.problem:
-            raise exc
+        rendered_mako_template = mako_template.render(**parameters)
+    # Weird Mako exception handling:
+    # http://docs.makotemplates.org/en/latest/usage.html#handling-exceptions
     except Exception:
         raise SystemExit(
             mako.exceptions.text_error_template().render()
         )
 
+    # Ignoring yaml tags unknown to this script, because one might want to use
+    # the providers tags like !Ref, !Sub, etc in their templates
+    try:
+        template = yaml.load(rendered_mako_template)
+    except yaml.constructor.ConstructorError as exc:
+        if "could not determine a constructor for the tag" not in exc.problem:
+            raise exc
     # Automatically adds and merges outputs for every resource in the
     # template - outputs are automatically exported.
     # An existing output in the template will not be overriden by an

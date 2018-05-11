@@ -146,6 +146,9 @@ def yaml_constructor(loader, tag_suffix, node):
         function = globals()[f"yaml_{tag_suffix[1:]}_constructor".lower()]
         return function(loader, node)
     return node
+#    if not node.value:
+#        return node.tag
+#    return f"{node.tag} {node.value}"
 
 
 def yaml_representer(dumper, data):
@@ -155,7 +158,8 @@ def yaml_representer(dumper, data):
 # Empty string means all custom tags are handled by yaml_constructor()
 # the constructor function handles what tags are specific to this
 # script and which aren't. For example, !Cloudformation must be handled
-# by this script, which !Sub, or !Ref must be passed to AWS.
+# by this script, and non-local tags like !Sub, or !Ref must be passed
+# kept as is.
 yaml.add_multi_constructor("", yaml_constructor)
 yaml.add_multi_representer(yaml.nodes.Node, yaml_representer)
 
@@ -170,8 +174,7 @@ def get_aws_stack_output(stack, output):
 
 
 def get_azure_stack_output(
-        resource_group, deployment, output, subscription=None
-    ):
+        resource_group, deployment, output, subscription=None):
     if not STACK_CACHE.get(deployment):
         api_client = AzureClient().get("resource.ResourceManagementClient")
         STACK_CACHE[deployment] = api_client.deployments.get(
