@@ -34,4 +34,5 @@ Tags:
   type: ${stack_type}
   team: ${team}
   environment: ${environment}
+  xoxo: !Ref lolo
 

@@ -59,7 +59,7 @@ develop:
 #
 
 # installs test requeriments and check code style
-check: install-test-requirements check-style
+check: check-style
 
 # checks code style
 check-style:
@@ -72,7 +72,7 @@ check-coverage:
 
 # tests the tool
 test: check
-	${PYTHON} setup.py test
+	${PYTHON} -m pytest
 
 
 # builds the package
