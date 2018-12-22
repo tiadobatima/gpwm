@@ -24,12 +24,12 @@ def get_version():
 
 
 def get_install_requirements():
-    with open("requirements/pip-install.txt") as f:
+    with open("requirements/install.txt") as f:
         return [l.strip() for l in f if l.strip() and not l.startswith("#")]
 
 
-def get_test_requirements():
-    with open("requirements/pip-test.txt") as f:
+def get_dev_requirements():
+    with open("requirements/development.txt") as f:
         return [l.strip() for l in f if l.strip() and not l.startswith("#")]
 
 
@@ -47,7 +47,7 @@ config = {
     },
     "setup_requires": ["pytest_runner"],
     "install_requires": get_install_requirements(),
-    "tests_require": get_test_requirements()
+    "tests_require": get_dev_requirements()
 }
 
 

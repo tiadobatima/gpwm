@@ -1,15 +1,16 @@
 #
 # Pip packages required when testing this tool. These requirements are in addition
-# to pip-install.txt
+# to install.txt
 #
 coverage
 flake8
-#moto
+pylint
 pytest
-pytest-runner
 pytest-cov
 pytest-mock
-setuptools-lint
-tox>=2.3.1,<3.0.0
+setuptools
+sphinx
+sphinxcontrib-napoleon
 twine
 wheel
+yapf

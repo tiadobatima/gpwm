@@ -14,7 +14,7 @@
 
 PACKAGE := gpwm
 TESTDIR := tests
-PYTHON  := python3.6
+PYTHON  := python3.7
 SHELL   := /bin/bash
 
 help:
@@ -29,30 +29,28 @@ help:
 .ONESHELL:
 .PHONY: check check-style check-coverage test dist develop install clean-all clean clean-venv ci-build ci-test ci-upload ci-cleanup install-test-requirements clean-pip-dependencies
 
-
-install-test-requirements:
-	${PYTHON} -m pip install --upgrade pip
-	${PYTHON} -m pip install -r requirements/pip-test.txt -r requirements/pip-install.txt
+prerequisites:
+	${PYTHON} -m pip install -r requirements/prerequisites.txt
 
 
+#install-test-requirements:
+#	${PYTHON} -m pip install --upgrade pip
+#	${PYTHON} -m pip install -r requirements/pip-test.txt -r requirements/pip-install.txt
 #
-# Configure virtual + dev environment
-#
-
-# install virtual environment
-# IMPORTANT: activate venv after running this
 venv:
-	${PYTHON} -m venv $@
+	${PYTHON} -m tox -e venv
 	@echo "===> IMPORTANT: Activate your venv if you're developing locally:"
 	@echo "========># source $@/bin/activate"
 	@touch $@
 
-# install package in develoment mode (for local dev only!)
-develop:
-	${PYTHON} -m pip install -e .
-	${MAKE} install-test-requirements
+docs:
+	sphinx-apidoc -f -o docs/api src/gpwm
 
+test:
+	${PYTHON} -m pytest -v
 
+tox:
+	${PYTHON} -m tox
 
 #
 # style, coverage and tests
@@ -71,24 +69,20 @@ check-coverage:
 	${PYTHON} -m pytest --cov=${PACKAGE} ${TESTDIR}/
 
 # tests the tool
-test: check
-	${PYTHON} -m pytest
+#test: check
+#	${PYTHON} -m pytest
 
+build:
+		${PYTHON} setup.py sdist bdist_wheel
 
-# builds the package
-dist: clean
-	${PYTHON} setup.py sdist
-	${PYTHON} setup.py bdist_wheel
+install:
+		${PYTHON} -m pip install dist/${PACKAGE}-$$(cat VERSION)-py2.py3-none-any.whl
+
+uninstall:
+		${PYTHON} -m pip uninstall ${PACKAGE} -y
 
 upload:
 	twine upload dist/*
-
-# installs this package and its requirements
-install:
-	${PYTHON} -m pip install --upgrade pip
-	${PYTHON} -m pip install -r requirements/pip-install.txt
-	${PYTHON} setup.py install
-
 
 #
 # cleanup
@@ -105,4 +99,3 @@ clean:
 # IMPORTANT: deactivate venv prior to running this!
 clean-venv:
 	rm -rf venv
-
