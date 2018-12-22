@@ -9,8 +9,6 @@ pytest
 pytest-cov
 pytest-mock
 setuptools
-sphinx
-sphinxcontrib-napoleon
 twine
 wheel
 yapf

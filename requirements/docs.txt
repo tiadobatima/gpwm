@@ -1,0 +1,5 @@
+#
+# Pip packages required for automated documentation
+#
+sphinx
+sphinxcontrib-napoleon
